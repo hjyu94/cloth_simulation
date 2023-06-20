@@ -123,4 +123,123 @@ function initMesh() {
  */
 function simulate(stepSize) {
     // FIX ME
+    for ( i = 0; i < meshResolution; ++i )
+        for ( j = 0; j < meshResolution; ++j ) {
+
+            if (isFixedPoint(i, j))
+                continue
+
+            let forceSpring = calculateTotalSpringForce(i, j);
+            let forceGravity = vec3.create([0, mass * -9.8 * 0.1, 0]);
+            let forceDamping = calculateDampingForce(i, j);
+            let forceViscous = calculateViscousForce(i, j);
+
+            let forceNet = vec3.add(forceSpring, forceGravity);
+            forceNet = vec3.add(forceNet, forceDamping);
+            forceNet = vec3.add(forceNet, forceViscous);
+
+            let currentVelocity = getVelocity(i, j);
+
+            let nextVelocity = vec3.create([0, 0, 0]);
+            nextVelocity = vec3.scale(vec3.create(forceNet), stepSize);
+            nextVelocity = vec3.add(vec3.create(nextVelocity), currentVelocity);
+
+            setVelocity(i, j, nextVelocity);
+
+            let currentPosition = getPosition(i, j);
+            let nextPosition = vec3.create([0, 0, 0])
+            nextPosition = vec3.scale(vec3.create(nextVelocity), stepSize);
+            nextPosition = vec3.add(vec3.create(currentPosition), nextPosition);
+
+            setPosition(i, j, nextPosition);
+        }
+}
+
+function isFixedPoint(i, j) {
+    return (i === meshResolution - 1 && j === 0) || (i === meshResolution - 1 && j === meshResolution - 1);
+}
+
+function calculateTotalSpringForce(i, j) {
+    let force = vec3.create([0, 0, 0]);
+
+    // 1. structural spring
+    let p = getPosition(i, j);
+
+    let q = [];
+    if (j < meshResolution - 1)
+        q[q.length] = getPosition(i, j+1);
+
+    if (i < meshResolution - 1)
+        q[q.length] = getPosition(i+1, j);
+
+    if (j > 0)
+        q[q.length] = getPosition(i, j-1);
+
+    if (i > 0)
+        q[q.length] = getPosition(i-1, j);
+
+    vec3.add(force, calculateSubSpringForce(0, p, q));
+
+    // 2. shear spring
+    p = getPosition(i, j);
+    q = [];
+
+    if (i < meshResolution - 1 && j < meshResolution - 1)
+        q[q.length] = getPosition(i+1, j+1);
+
+    if (i < meshResolution - 1 && j > 0)
+        q[q.length] = getPosition(i+1, j-1);
+
+    if (i > 0 && j < meshResolution - 1)
+        q[q.length] = getPosition(i-1, j+1);
+
+    if (i > 0 && j > 0)
+        q[q.length] = getPosition(i-1, j-1);
+
+    vec3.add(force, calculateSubSpringForce(1, p, q));
+
+    // 3. flexion spring
+    p = getPosition(i, j);
+    q = [];
+
+    if (j < meshResolution - 2)
+        q[q.length] = getPosition(i, j+2);
+
+    if (i < meshResolution - 2)
+        q[q.length] = getPosition(i+2, j);
+
+    if (j > 1)
+        q[q.length] = getPosition(i, j-2);
+
+    if (i > 1)
+        q[q.length] = getPosition(i-2, j);
+
+    vec3.add(force, calculateSubSpringForce(2, p, q));
+
+    return force;
+}
+
+function calculateSubSpringForce(springIdx, p, q) {
+    let force = vec3.create([0, 0, 0]);
+
+    for (let i = 0; i < q.length; i++) {
+        let pMinusQ = vec3.subtract(vec3.create(p), q[i]);
+        let size = K[springIdx] * (restLength[springIdx] - vec3.length(pMinusQ));
+        let direction = vec3.normalize(vec3.create(pMinusQ));
+
+        vec3.add(force, vec3.scale(direction, size));
+    }
+
+    return force;
+}
+
+function calculateDampingForce(i, j) {
+    let currentVelocity = getVelocity(i, j);
+    return vec3.scale(currentVelocity, Cd);
+}
+
+function calculateViscousForce(i, j) {
+    const normal = getNormal(i, j);
+    let coefficient = Cv * vec3.dot(normal, vec3.subtract(vec3.create(uf), getVelocity(i, j)));
+    return vec3.scale(normal, coefficient);
 }

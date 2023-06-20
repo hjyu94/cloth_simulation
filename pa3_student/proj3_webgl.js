@@ -175,7 +175,7 @@ function webGLStart() {
     meshResolution = 25;
     mass = 1.0;
     restLength = vec3.create();
-    K = vec3.create([25000.0, 25000.0, 25000.0]);
+    K = vec3.create([1000.0, 1000.0, 1000.0]);
     Cd = 0.5;
     uf = vec3.create([0.0, 0.0, 1.0]);
     Cv = 0.5;    
