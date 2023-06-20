@@ -4,9 +4,10 @@ Reference
 - https://www.ics.uci.edu/~shz/courses/cs114/docs/proj3/index.html
 
 Resource
-- commit number: 534370b3ce0d29ced270de8bae6f17bad2815001
+- [commit link](https://github.com/hjyu94/cloth_simulation/commit/534370b3ce0d29ced270de8bae6f17bad2815001)
 
 My own implementation
+- [commit link](https://github.com/hjyu94/cloth_simulation/commit/65b9464fd0a6ff68cd853a2328654d6154e52231)
 - spring internal force, gravity, damping, viscous fluid
   - spring internal force (by Hooke's law)
     - structural spring
@@ -15,7 +16,6 @@ My own implementation
 - symplectic time integration
   - v(t+h) = v(t) + h * net_force(t) / m
   - x(t+h) = x(t) + h * v(t+h)
-- commit number: 534370b3ce0d29ced270de8bae6f17bad2815001
 
 Results
 - Parameters
