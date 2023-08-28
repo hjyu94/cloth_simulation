@@ -12,7 +12,7 @@ wp.init()
 
 class Example:
     # seconds
-    sim_duration = 5.0
+    sim_duration = 3.0
 
     # control frequency
     frame_dt = 1.0 / 60.0
@@ -28,7 +28,7 @@ class Example:
     train_iters = 3
     train_rate = 0.01
 
-    ke = 1.0e1
+    ke = 1.0e3
     kf = 0.0
     kd = 1.0e1
     mu = 0.25
@@ -57,9 +57,9 @@ class Example:
             cell_x=0.1,
             cell_y=0.1,
             mass=0.1,
-            tri_ke=1.0e1,
-            tri_ka=1.0e1,
-            tri_kd=1.0e0,
+            tri_ke=1.0e3,
+            tri_ka=1.0e3,
+            tri_kd=1.0e1,
         )
         
         builder.add_shape_sphere(
