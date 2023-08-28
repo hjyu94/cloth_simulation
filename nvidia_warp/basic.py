@@ -3,8 +3,6 @@ import math
 
 import numpy as np
 
-import torch
-
 import warp as wp
 import warp.sim
 import warp.sim.render
@@ -36,7 +34,8 @@ class Example:
     # mu = 0.25
 
 
-    def __init__(self, stage):
+    def __init__(self, stage, adapter=None):
+        self.device = wp.get_device(adapter)
         self.create_scene(stage)
 
 
@@ -61,7 +60,7 @@ class Example:
             tri_kd=1.0e1,
         )
         
-        self.model = builder.finalize(device="cuda", requires_grad=True)
+        self.model = builder.finalize(device=self.device, requires_grad=True)
         self.model.ground = True
 
         # self.renderer = wp.sim.render.SimRendererOpenGL(self.model, stage, scaling=1.0)
@@ -69,8 +68,8 @@ class Example:
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
         self.target = wp.vec3(0.0, 0.0, 0.0)
-        self.com = wp.zeros(1, dtype=wp.vec3, device="cuda", requires_grad=True)
-        self.loss = wp.zeros(1, dtype=wp.float32, device="cuda", requires_grad=True)
+        self.com = wp.zeros(1, dtype=wp.vec3, device=self.device, requires_grad=True)
+        self.loss = wp.zeros(1, dtype=wp.float32, device=self.device, requires_grad=True)
 
         self.states = []
         for i in range(self.sim_steps + 1):
@@ -131,14 +130,14 @@ class Example:
                 self.com_kernel,
                 dim=self.model.particle_count,
                 inputs=[self.states[-1].particle_q, self.model.particle_count, self.com],
-                device="cuda",
+                device=self.device,
             )
 
             wp.launch(
                 kernel=self.loss_kernel,
                 dim=1, 
                 inputs=[self.com, self.target, self.loss], 
-                device="cuda"
+                device=self.device
             )
 
         # backwoard simulation
@@ -159,7 +158,7 @@ class Example:
                     kernel=self.step_kernel, 
                     dim=len(x), 
                     inputs=[x, x.grad, self.train_rate], 
-                    device="cuda"
+                    device=self.device
                 )
                 
                 # debug
