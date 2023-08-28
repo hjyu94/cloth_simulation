@@ -54,7 +54,7 @@ class Example:
             cell_x=0.1,
             cell_y=0.1,
             mass=0.1,
-            fix_left=True,
+            # fix_left=True,
             tri_ke=1.0e3,
             tri_ka=1.0e3,
             tri_kd=1.0e1,
@@ -146,30 +146,33 @@ class Example:
         self.graph = wp.capture_end()
         ##### end creating graph #####
 
-        # replay and optimize
-        for i in range(self.train_iters):
-            with wp.ScopedTimer("Step"):
-                # forward + backward
-                wp.capture_launch(self.graph)
+        # # replay and optimize
+        # for i in range(self.train_iters):
+        #     with wp.ScopedTimer("Step"):
+        #         # forward + backward
+        #         wp.capture_launch(self.graph)
 
-                # gradient descent step
-                x = self.states[0].particle_q
-                wp.launch(
-                    kernel=self.step_kernel, 
-                    dim=len(x), 
-                    inputs=[x, x.grad, self.train_rate], 
-                    device=self.device
-                )
+        #         # gradient descent step
+        #         x = self.states[0].particle_q
+        #         wp.launch(
+        #             kernel=self.step_kernel, 
+        #             dim=len(x), 
+        #             inputs=[x, x.grad, self.train_rate], 
+        #             device=self.device
+        #         )
                 
-                # debug
-                print(f"Iter: {i} Loss: {self.loss}")
+        #         # debug
+        #         print(f"Iter: {i} Loss: {self.loss}")
 
-                # clear grads for next iteration
-                tape.zero()
+        #         # clear grads for next iteration
+        #         tape.zero()
             
-            with wp.ScopedTimer("Render"):
-                self.render(i)
-
+        #     with wp.ScopedTimer("Render"):
+        #         self.render(i)
+        
+        wp.capture_launch(self.graph)
+        self.render(0)
+        
 
 if __name__ == "__main__":
     stage_path = os.path.join(os.path.dirname(__file__), "outputs/basic.usd")
