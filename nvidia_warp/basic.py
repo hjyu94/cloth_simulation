@@ -27,7 +27,7 @@ class Example:
 
     render_time = 0.0
 
-    train_iters = 1
+    train_iters = 3
     train_rate = 0.01
 
     # ke = 1.0e4
@@ -65,11 +65,11 @@ class Example:
         self.model.ground = True
 
         # self.renderer = wp.sim.render.SimRendererOpenGL(self.model, stage, scaling=1.0)
-        self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=1.0)
+        self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=40.0)
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
         self.target = wp.vec3(0.0, 0.0, 0.0)
-#        self.com = wp.zeros(1, dtype=wp.vec3, device="cuda", requires_grad=True)
+        self.com = wp.zeros(1, dtype=wp.vec3, device="cuda", requires_grad=True)
         self.loss = wp.zeros(1, dtype=wp.float32, device="cuda", requires_grad=True)
 
         self.states = []
@@ -78,10 +78,20 @@ class Example:
         
         wp.sim.collide(self.model, self.states[0])
 
-    
+
     @wp.kernel
-    def loss_kernel(pos: wp.array(dtype=wp.vec3), target: wp.vec3, loss: wp.array(dtype=float)):
-        delta = pos[0] - target
+    def com_kernel(positions: wp.array(dtype=wp.vec3), n: int, com: wp.array(dtype=wp.vec3)):
+        tid = wp.tid()
+
+        # compute center of mass
+        wp.atomic_add(com, 0, positions[tid] / float(n))
+
+
+    @wp.kernel
+    def loss_kernel(com: wp.array(dtype=wp.vec3), target: wp.vec3, loss: wp.array(dtype=float)):
+        # sq. distance to target
+        delta = com[0] - target
+
         loss[0] = wp.dot(delta, delta)
 
 
@@ -116,13 +126,20 @@ class Example:
                 self.integrator.simulate(self.model, self.states[i], self.states[i + 1], self.sim_dt)
 
             # compute loss on final state
+            self.com.zero_()
+            wp.launch(
+                self.com_kernel,
+                dim=self.model.particle_count,
+                inputs=[self.states[-1].particle_q, self.model.particle_count, self.com],
+                device="cuda",
+            )
+
             wp.launch(
                 kernel=self.loss_kernel,
                 dim=1, 
-                inputs=[self.states[-1].particle_q, self.target, self.loss], 
+                inputs=[self.com, self.target, self.loss], 
                 device="cuda"
             )
-
 
         # backwoard simulation
         tape.backward(self.loss)
@@ -136,46 +153,23 @@ class Example:
                 # forward + backward
                 wp.capture_launch(self.graph)
 
-                # # gradient descent step
-                # x = self.states[0].particle_qd
-                # wp.launch(
-                #     kernel=self.step_kernel, 
-                #     dim=len(x), 
-                #     inputs=[x, x.grad, self.train_rate], 
-                #     device="cuda"
-                # )
-                # x_grad = tape.gradients[self.states[0].particle_qd]
+                # gradient descent step
+                x = self.states[0].particle_q
+                wp.launch(
+                    kernel=self.step_kernel, 
+                    dim=len(x), 
+                    inputs=[x, x.grad, self.train_rate], 
+                    device="cuda"
+                )
                 
-                # # debug
-                # print(f"Iter: {i} Loss: {self.loss}")
-                # print(f"   x: {x} g: {x_grad}")
+                # debug
+                print(f"Iter: {i} Loss: {self.loss}")
 
-                # # clear grads for next iteration
-                # tape.zero()
+                # clear grads for next iteration
+                tape.zero()
             
             with wp.ScopedTimer("Render"):
                 self.render(i)
-
-
-    # def update(self):
-    #     with wp.ScopedTimer("simulate", active=False):
-    #         wp.sim.collide(self.model, self.state_0)
-
-    #         for s in range(self.sim_substeps):
-    #             self.state_0.clear_forces()
-    #             self.integrator.simulate(self.model, self.state_0, self.state_1, self.sim_dt)
-    #             (self.state_0, self.state_1) = (self.state_1, self.state_0) # swap states
-
-    # def render(self, is_live=False):
-    #     with wp.ScopedTimer("render", detailed=False):
-    #         time = 0.0 if is_live else self.sim_time
-
-    #         self.renderer.begin_frame(time)
-    #         self.renderer.render(self.state_0)
-    #         self.renderer.end_frame()
-        
-    #     self.sim_time += 1.0 / self.sim_fps
-
 
 
 if __name__ == "__main__":
