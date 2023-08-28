@@ -19,7 +19,7 @@ class Example:
     frame_steps = int(sim_duration / frame_dt)
 
     # sim frequency
-    sim_substeps = 16
+    sim_substeps = 64
     sim_steps = frame_steps * sim_substeps
     sim_dt = frame_dt / sim_substeps # 1 step 을 지나는데 걸리는 시간
 
@@ -28,7 +28,7 @@ class Example:
     train_iters = 3
     train_rate = 0.01
 
-    ke = 1.0e4
+    ke = 1.0e1
     kf = 0.0
     kd = 1.0e1
     mu = 0.25
@@ -57,9 +57,9 @@ class Example:
             cell_x=0.1,
             cell_y=0.1,
             mass=0.1,
-            tri_ke=1.0e3,
-            tri_ka=1.0e3,
-            tri_kd=1.0e1,
+            tri_ke=1.0e1,
+            tri_ka=1.0e1,
+            tri_kd=1.0e0,
         )
         
         builder.add_shape_sphere(
