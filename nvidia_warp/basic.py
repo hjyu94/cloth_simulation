@@ -45,12 +45,12 @@ class Example:
         sim_width = 32
         sim_height = 32
         
-        cell_x = 0.1
-        cell_y = 0.1
+        cell_x = 0.05
+        cell_y = 0.05
         
         builder.add_cloth_grid(
             pos=(-sim_width * cell_x * 0.5, 7.0, -sim_height * cell_y * 0.5),
-            rot=wp.quat_from_axis_angle((1.0, 0.0, 0.0), math.pi * 0.5),
+            rot=wp.quat_from_axis_angle((1.0, 0.0, 0.0), math.pi * 0.5 + 0.4),
             vel=(0.0, 0.0, 0.0),
             dim_x=sim_width,
             dim_y=sim_height,
@@ -64,7 +64,7 @@ class Example:
         
         builder.add_shape_sphere(
             pos=(0.0, 5.0, 0.0), 
-            radius=0.5, 
+            radius=1.0, 
             density=10.0, 
             body=-1,
             ke=self.ke, 
