@@ -13,28 +13,34 @@ wp.init()
 
 
 class Example:
-    def __init__(self, stage):
-        self.sim_fps = 60.0
-        self.sim_substeps = 64 # 업데이트 할 때 64번 서브스텝 진행 후 렌더링, 반복
-        self.sim_duration = 5.0
-        self.sim_frames = int(self.sim_duration * self.sim_fps)
-        self.sim_dt = (1.0 / self.sim_fps) / self.sim_substeps  # 초당 60Hz
-
-        self.sim_time = 0.0 # 현재 시뮬레이션 시간, 렌더링 할 때 파라미터로 쓰임
-
-        # self.sim_dt = self.frame_dt / self.sim_substeps
-        # self.sim_steps = self.frame_count * self.sim_substeps
+    sim_duration = 0.6
         
+    frame_dt = 1.0 / 60.0                       # 1 frame: 1/60 seconds
+    frame_steps = int(sim_duration / frame_dt)  # 36 frames
+
+    sim_substeps = 8
+    sim_steps = frame_steps * sim_substeps      # 36 * 8 steps
+    sim_dt = frame_dt / sim_substeps            # 1 step: 1/60*8 seconds
+    sim_time = 0.0
+
+    render_time = 0.0
+
+    train_iters = 250
+    train_rate = 0.01
+
+    # ke = 1.0e4
+    # kf = 0.0
+    # kd = 1.0e1
+    # mu = 0.25
+
+
+    def __init__(self, stage):
         self.create_scene(stage)
 
 
     def create_scene(self, stage):
         builder = wp.sim.ModelBuilder()
 
-        # ground
-        # builder.set_ground_plane()
-        
-        # cloth
         self.sim_width = 64
         self.sim_height = 32
 
@@ -56,13 +62,17 @@ class Example:
         self.model = builder.finalize(device="cuda", requires_grad=True)
         self.model.ground = True
 
-        # self.renderer = wp.render.UsdRenderer(stage)
-        self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=40.0)
+        self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=1.0)
+        
+        self.target = wp.vec3(0.0, 0.0, 0.0)
+        self.loss = wp.zeros(1, dtype=wp.float32, device="cuda", requires_grad=True)
 
-        self.integrator = wp.sim.SemiImplicitIntegrator()
+        self.states = []
+        for i in range(self.sim_steps + 1):
+            self.states.append(self.model.state(requires_grad=True))
+        
+        wp.sim.collide(self.model, self.states[0])
 
-        self.state_0 = self.model.state()
-        self.state_1 = self.model.state()
 
 
     def update(self):
