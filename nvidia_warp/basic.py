@@ -12,15 +12,15 @@ wp.init()
 
 class Example:
     # seconds
-    sim_duration = 2.0
+    sim_duration = 5.0
 
     # control frequency
     frame_dt = 1.0 / 60.0
-    frame_steps = int(sim_duration / frame_dt) # 120 frames
+    frame_steps = int(sim_duration / frame_dt)
 
     # sim frequency
     sim_substeps = 16
-    sim_steps = frame_steps * sim_substeps # 120 * 16 steps
+    sim_steps = frame_steps * sim_substeps
     sim_dt = frame_dt / sim_substeps # 1 step 을 지나는데 걸리는 시간
 
     render_time = 0.0
@@ -28,10 +28,10 @@ class Example:
     train_iters = 3
     train_rate = 0.01
 
-    # ke = 1.0e4
-    # kf = 0.0
-    # kd = 1.0e1
-    # mu = 0.25
+    ke = 1.0e4
+    kf = 0.0
+    kd = 1.0e1
+    mu = 0.25
 
 
     def __init__(self, stage, adapter=None):
@@ -42,29 +42,52 @@ class Example:
     def create_scene(self, stage):
         builder = wp.sim.ModelBuilder()
 
-        self.sim_width = 4
-        self.sim_height = 4
-
+        sim_width = 32
+        sim_height = 32
+        
+        cell_x = 0.1
+        cell_y = 0.1
+        
         builder.add_cloth_grid(
-            pos=(0.0, 4.0, 0.0),
+            pos=(-sim_width * cell_x * 0.5, 7.0, -sim_height * cell_y * 0.5),
             rot=wp.quat_from_axis_angle((1.0, 0.0, 0.0), math.pi * 0.5),
             vel=(0.0, 0.0, 0.0),
-            dim_x=self.sim_width,
-            dim_y=self.sim_height,
+            dim_x=sim_width,
+            dim_y=sim_height,
             cell_x=0.1,
             cell_y=0.1,
             mass=0.1,
-            # fix_left=True,
             tri_ke=1.0e3,
             tri_ka=1.0e3,
             tri_kd=1.0e1,
         )
         
+        builder.add_shape_sphere(
+            pos=(0.0, 5.0, 0.0), 
+            radius=0.5, 
+            density=10.0, 
+            body=-1,
+            ke=self.ke, 
+            kf=self.kf, 
+            kd=self.kd, 
+            mu=self.mu
+        )
+        
         self.model = builder.finalize(device=self.device, requires_grad=True)
         self.model.ground = True
 
+        self.model.soft_contact_ke = self.ke
+        self.model.soft_contact_kf = self.kf
+        self.model.soft_contact_kd = self.kd
+        self.model.soft_contact_mu = self.mu
+        # self.model.soft_contact_mu.requires_grad = True
+        
+        self.model.requires_grad = True
+        self.model.soft_contact_margin = 10.0
+        self.model.soft_contact_restitution = 1.0
+
         # self.renderer = wp.sim.render.SimRendererOpenGL(self.model, stage, scaling=1.0)
-        self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=40.0)
+        self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=30.0)
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
         self.target = wp.vec3(0.0, 0.0, 0.0)
