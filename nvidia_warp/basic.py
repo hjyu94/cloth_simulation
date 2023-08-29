@@ -12,7 +12,7 @@ wp.init()
 
 class Example:
     # seconds
-    sim_duration = 3.0
+    sim_duration = 5.0
 
     # control frequency
     frame_dt = 1.0 / 60.0
@@ -45,23 +45,31 @@ class Example:
         sim_width = 32
         sim_height = 32
         
-        cell_x = 1e-3
-        cell_y = 1e-3
+        cell_x = 1e-1
+        cell_y = 1e-1
         
         builder.add_cloth_grid(
-            pos=(-sim_width * cell_x * 0.5, 7.0, -sim_height * cell_y * 0.5),
-            rot=wp.quat_from_axis_angle((1.0, 0.0, 0.0), math.pi * 0.5 + 0.4),
+            pos=(-sim_width * cell_x * 0.5, 20.0, -sim_height * cell_y * 0.5),
+            rot=wp.quat_from_axis_angle((1.0, 0.0, 0.0), math.pi * 0.5),
             vel=(0.0, 0.0, 0.0),
             dim_x=sim_width,
             dim_y=sim_height,
-            cell_x=0.1,
-            cell_y=0.1,
+            cell_x=cell_x,
+            cell_y=cell_y,
             mass=0.1,
             tri_ke=1.0e3,
             tri_ka=1.0e3,
             tri_kd=1.0e1,
+            tri_lift=10.0,
+            tri_drag=5.0,
         )
         
+        # builder.add_particle(
+        #     pos=(-5.0, 0.0, 0.0),
+        #     vel=(5.0, 20.0, 0.0),
+        #     mass=0.1,
+        #     radius=1.0
+        # )
         # builder.add_shape_sphere(
         #     pos=(0.0, 5.0, 0.0), 
         #     radius=1.0, 
@@ -87,7 +95,7 @@ class Example:
         self.model.soft_contact_restitution = 1.0
 
         # self.renderer = wp.sim.render.SimRendererOpenGL(self.model, stage, scaling=1.0)
-        self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=30.0)
+        self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=10.0)
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
         self.target = wp.vec3(10.0, 10.0, 10.0)
@@ -144,27 +152,24 @@ class Example:
         pick_force: wp.array(dtype=wp.vec3),
     ):
         tid = wp.tid()
-        
         # if tid > 300 and tid < 700:
-        # # if tid in range(300, 700) and tid % 32 < 10:
-        #     f = pick_force[0]
-        # else:
-        #     f = init_force[0]
+        
+        if tid / 33 > 10 and tid / 33 < 22 and tid % 33 > 10 and tid % 33 < 22:
+            f = pick_force[0]
+        else:
+            f = wp.vec3(0.0, 0.0, 0.0)
 
-        f = pick_force[0]
+        # f = pick_force[0]
         particle_f[tid] = f
         
         
     def train_graph(self):
-        # for i in range(self.sim_steps):
-        #     if i < self.sim_steps * 0.3:
-        #         force = np.zeros((self.states[i].particle_count, 3))
-        #         for idx in range(300, 700):
-        #             if idx % 32 < 10:
-        #                 force[idx] = (5, 20, 3)
-        #         self.states[i].particle_f = wp.from_numpy(force, dtype=wp.vec3, device=self.device)
-        #     else:
-        #         self.states[i].clear_forces()
+        
+        # force = np.zeros((self.states[0].particle_count, 3))
+        # for idx in range(300, 700):
+        #     if idx % 33 < 10:
+        #         force[idx] = (5, 20, 3)
+        # self.states[0].particle_f = wp.from_numpy(force, dtype=wp.vec3, device=self.device)
 
         ##### start creating graph #####
         wp.capture_begin()
@@ -176,16 +181,15 @@ class Example:
             # run control loop
             for i in range(self.sim_steps):
                 self.states[i].clear_forces()
-                if i < self.sim_steps * 0.1:
-                    wp.launch(
-                        kernel=self.apply_forces,
-                        dim=self.states[i].particle_count,
-                        inputs=[
-                            self.states[i].particle_f,
-                            self.init_force,
-                            self.pick_force,
-                        ],
-                    )
+                wp.launch(
+                    kernel=self.apply_forces,
+                    dim=self.states[i].particle_count,
+                    inputs=[
+                        self.states[i].particle_f,
+                        self.init_force,
+                        self.pick_force,
+                    ],
+                )
                 self.integrator.simulate(self.model, self.states[i], self.states[i + 1], self.sim_dt)
 
             # compute loss on final state
