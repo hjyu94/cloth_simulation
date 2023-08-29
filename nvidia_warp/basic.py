@@ -25,8 +25,8 @@ class Example:
 
     render_time = 0.0
 
-    train_iters = 3
-    train_rate = 0.01
+    train_iters = 20
+    train_rate = 0.001
 
     ke = 1.0e3
     kf = 0.0
@@ -62,16 +62,16 @@ class Example:
             tri_kd=1.0e1,
         )
         
-        builder.add_shape_sphere(
-            pos=(0.0, 5.0, 0.0), 
-            radius=1.0, 
-            density=10.0, 
-            body=-1,
-            ke=self.ke, 
-            kf=self.kf, 
-            kd=self.kd, 
-            mu=self.mu
-        )
+        # builder.add_shape_sphere(
+        #     pos=(0.0, 5.0, 0.0), 
+        #     radius=1.0, 
+        #     density=10.0, 
+        #     body=-1,
+        #     ke=self.ke, 
+        #     kf=self.kf, 
+        #     kd=self.kd, 
+        #     mu=self.mu
+        # )
         
         self.model = builder.finalize(device=self.device, requires_grad=True)
         self.model.ground = True
@@ -90,7 +90,7 @@ class Example:
         self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=30.0)
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
-        self.target = wp.vec3(0.0, 0.0, 0.0)
+        self.target = wp.vec3(10.0, 10.0, 10.0)
         self.com = wp.zeros(1, dtype=wp.vec3, device=self.device, requires_grad=True)
         self.loss = wp.zeros(1, dtype=wp.float32, device=self.device, requires_grad=True)
         
@@ -145,12 +145,13 @@ class Example:
     ):
         tid = wp.tid()
         
-        if tid > 300 and tid < 700:
-        # if tid in range(300, 700) and tid % 32 < 10:
-            f = pick_force[0]
-        else:
-            f = init_force[0]
+        # if tid > 300 and tid < 700:
+        # # if tid in range(300, 700) and tid % 32 < 10:
+        #     f = pick_force[0]
+        # else:
+        #     f = init_force[0]
 
+        f = pick_force[0]
         particle_f[tid] = f
         
         
@@ -174,7 +175,8 @@ class Example:
         with tape:
             # run control loop
             for i in range(self.sim_steps):
-                if i < self.sim_steps * 0.3:
+                self.states[i].clear_forces()
+                if i < self.sim_steps * 0.1:
                     wp.launch(
                         kernel=self.apply_forces,
                         dim=self.states[i].particle_count,
@@ -184,7 +186,6 @@ class Example:
                             self.pick_force,
                         ],
                     )
-                
                 self.integrator.simulate(self.model, self.states[i], self.states[i + 1], self.sim_dt)
 
             # compute loss on final state
@@ -215,6 +216,11 @@ class Example:
                 # forward + backward
                 wp.capture_launch(self.graph)
 
+                print(f"======================== Iter: {i} ========================")
+                print(f"com: {self.com.numpy()}")
+                print(f"pick_force: {self.pick_force.numpy()}")
+                print(f"target: {self.target}")
+                
                 # gradient descent step
                 wp.launch(
                     kernel=self.step_kernel, 
@@ -224,7 +230,9 @@ class Example:
                 )
                 
                 # debug
-                print(f"Iter: {i} Loss: {self.loss}")
+                print(f"loss: {self.loss}")
+                print(f"gradient of pick_force: {self.pick_force.grad.numpy()}")
+                print(f"pick_force(updated): {self.pick_force.numpy()}")
 
                 # clear grads for next iteration
                 tape.zero()
