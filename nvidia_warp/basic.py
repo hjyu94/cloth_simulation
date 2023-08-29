@@ -7,11 +7,13 @@ import warp as wp
 import warp.sim
 import warp.sim.render
 
+from pxr import Usd, UsdGeom
+
 wp.init()
 
 
 class Example:
-    sim_duration = 5.0 # seconds
+    sim_duration = 3.0 # seconds
 
     # control frequency
     frame_dt = 1.0 / 60.0
@@ -24,7 +26,7 @@ class Example:
     render_time = 0.0
 
     train_iters = 20
-    train_rate = 0.001
+    train_rate = 0.01
 
     ke = 1.0e3
     kf = 0.0
@@ -43,11 +45,11 @@ class Example:
         sim_width = 32
         sim_height = 32
         
-        cell_x = 0.5
-        cell_y = 0.5
+        cell_x = 0.1
+        cell_y = 0.1
         
         builder.add_cloth_grid(
-            pos=(-sim_width * cell_x * 0.5, 20.0, -sim_height * cell_y * 0.5),
+            pos=(-sim_width * cell_x * 0.5, 10.0, -sim_height * cell_y * 0.5),
             rot=wp.quat_from_axis_angle((1.0, 0.0, 0.0), math.pi * 0.5),
             vel=(0.0, 0.0, 0.0),
             dim_x=sim_width,
@@ -60,6 +62,26 @@ class Example:
             tri_kd=1.0e1,
             # tri_lift=10.0,
             # tri_drag=5.0,
+        )
+        
+        
+        usd_stage = Usd.Stage.Open(os.path.join(os.path.dirname(__file__), "assets/torus.usd"))
+        usd_geom = UsdGeom.Mesh(usd_stage.GetPrimAtPath("/Torus/Torus"))
+
+        mesh_points = np.array(usd_geom.GetPointsAttr().Get())
+        mesh_indices = np.array(usd_geom.GetFaceVertexIndicesAttr().Get())
+
+        mesh = wp.sim.Mesh(mesh_points, mesh_indices)
+
+        builder.add_shape_mesh(
+            body=-1,
+            mesh=mesh,
+            pos=(10.0, 30.0, 10.0),
+            rot=wp.quat_from_axis_angle((1.0, 0.0, 0.0), math.pi * 0.5),
+            scale=(1, 1, 1),
+            ke=1.0e2,
+            kd=1.0e2,
+            kf=1.0e1,
         )
         
         self.model = builder.finalize(device=self.device, requires_grad=True)
@@ -78,7 +100,7 @@ class Example:
         self.renderer = wp.sim.render.SimRenderer(self.model, stage, scaling=10.0)
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
-        self.target = wp.vec3(10.0, 10.0, 10.0)
+        self.target = wp.vec3(10.0, 30.0, 10.0)
         self.com = wp.zeros(1, dtype=wp.vec3, device=self.device, requires_grad=True)
         self.loss = wp.zeros(1, dtype=wp.float32, device=self.device, requires_grad=True)
         
@@ -105,7 +127,7 @@ class Example:
         # sq. distance to target
         delta = com[0] - target
 
-        loss[0] = wp.dot(delta, delta)
+        loss[0] = wp.dot(delta, delta) + (com[0][1] - target[1])
 
 
     @wp.kernel
@@ -132,14 +154,12 @@ class Example:
         pick_force: wp.array(dtype=wp.vec3),
     ):
         tid = wp.tid()
-        # if tid > 300 and tid < 700:
         
         if idx < 5120 and tid / 33 > 10 and tid / 33 < 22 and tid % 33 > 10 and tid % 33 < 22:
             f = pick_force[0]
         else:
             f = wp.vec3(0.0, 0.0, 0.0)
 
-        # f = pick_force[0]
         particle_f[tid] = f
         
         
