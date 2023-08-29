@@ -134,7 +134,34 @@ class Example:
             self.render_time += self.frame_dt
 
 
+    @wp.kernel
+    def apply_forces(
+        particle_f: wp.array(dtype=wp.vec3),
+        init_force: wp.array(dtype=wp.vec3),
+        pick_force: wp.array(dtype=wp.vec3),
+    ):
+        tid = wp.tid()
+        
+        if tid > 300 and tid < 700:
+        # if tid in range(300, 700) and tid % 32 < 10:
+            f = pick_force[0]
+        else:
+            f = init_force[0]
+
+        particle_f[tid] = f
+        
+        
     def train_graph(self):
+        # for i in range(self.sim_steps):
+        #     if i < self.sim_steps * 0.3:
+        #         force = np.zeros((self.states[i].particle_count, 3))
+        #         for idx in range(300, 700):
+        #             if idx % 32 < 10:
+        #                 force[idx] = (5, 20, 3)
+        #         self.states[i].particle_f = wp.from_numpy(force, dtype=wp.vec3, device=self.device)
+        #     else:
+        #         self.states[i].clear_forces()
+
         ##### start creating graph #####
         wp.capture_begin()
 
@@ -144,7 +171,17 @@ class Example:
         with tape:
             # run control loop
             for i in range(self.sim_steps):
-                self.states[i].clear_forces()
+                if i < self.sim_steps * 0.3:
+                    wp.launch(
+                        kernel=self.apply_forces,
+                        dim=self.states[i].particle_count,
+                        inputs=[
+                            self.states[i].particle_f,
+                            self.init_force,
+                            self.pick_force,
+                        ],
+                    )
+                
                 self.integrator.simulate(self.model, self.states[i], self.states[i + 1], self.sim_dt)
 
             # compute loss on final state
