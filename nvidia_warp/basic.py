@@ -45,8 +45,8 @@ class Example:
         sim_width = 32
         sim_height = 32
         
-        cell_x = 1e-1
-        cell_y = 1e-1
+        cell_x = 0.5
+        cell_y = 0.5
         
         builder.add_cloth_grid(
             pos=(-sim_width * cell_x * 0.5, 20.0, -sim_height * cell_y * 0.5),
@@ -60,8 +60,8 @@ class Example:
             tri_ke=1.0e3,
             tri_ka=1.0e3,
             tri_kd=1.0e1,
-            tri_lift=10.0,
-            tri_drag=5.0,
+            # tri_lift=10.0,
+            # tri_drag=5.0,
         )
         
         # builder.add_particle(
@@ -148,13 +148,13 @@ class Example:
     @wp.kernel
     def apply_forces(
         particle_f: wp.array(dtype=wp.vec3),
-        init_force: wp.array(dtype=wp.vec3),
+        idx: int,
         pick_force: wp.array(dtype=wp.vec3),
     ):
         tid = wp.tid()
         # if tid > 300 and tid < 700:
         
-        if tid / 33 > 10 and tid / 33 < 22 and tid % 33 > 10 and tid % 33 < 22:
+        if idx < 5120 and tid / 33 > 10 and tid / 33 < 22 and tid % 33 > 10 and tid % 33 < 22:
             f = pick_force[0]
         else:
             f = wp.vec3(0.0, 0.0, 0.0)
@@ -186,7 +186,7 @@ class Example:
                     dim=self.states[i].particle_count,
                     inputs=[
                         self.states[i].particle_f,
-                        self.init_force,
+                        i,
                         self.pick_force,
                     ],
                 )
