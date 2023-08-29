@@ -11,17 +11,15 @@ wp.init()
 
 
 class Example:
-    # seconds
-    sim_duration = 5.0
+    sim_duration = 5.0 # seconds
 
     # control frequency
     frame_dt = 1.0 / 60.0
     frame_steps = int(sim_duration / frame_dt)
 
-    # sim frequency
     sim_substeps = 64
     sim_steps = frame_steps * sim_substeps
-    sim_dt = frame_dt / sim_substeps # 1 step 을 지나는데 걸리는 시간
+    sim_dt = frame_dt / sim_substeps
 
     render_time = 0.0
 
@@ -64,23 +62,6 @@ class Example:
             # tri_drag=5.0,
         )
         
-        # builder.add_particle(
-        #     pos=(-5.0, 0.0, 0.0),
-        #     vel=(5.0, 20.0, 0.0),
-        #     mass=0.1,
-        #     radius=1.0
-        # )
-        # builder.add_shape_sphere(
-        #     pos=(0.0, 5.0, 0.0), 
-        #     radius=1.0, 
-        #     density=10.0, 
-        #     body=-1,
-        #     ke=self.ke, 
-        #     kf=self.kf, 
-        #     kd=self.kd, 
-        #     mu=self.mu
-        # )
-        
         self.model = builder.finalize(device=self.device, requires_grad=True)
         self.model.ground = True
 
@@ -88,7 +69,6 @@ class Example:
         self.model.soft_contact_kf = self.kf
         self.model.soft_contact_kd = self.kd
         self.model.soft_contact_mu = self.mu
-        # self.model.soft_contact_mu.requires_grad = True
         
         self.model.requires_grad = True
         self.model.soft_contact_margin = 10.0
@@ -164,13 +144,6 @@ class Example:
         
         
     def train_graph(self):
-        
-        # force = np.zeros((self.states[0].particle_count, 3))
-        # for idx in range(300, 700):
-        #     if idx % 33 < 10:
-        #         force[idx] = (5, 20, 3)
-        # self.states[0].particle_f = wp.from_numpy(force, dtype=wp.vec3, device=self.device)
-
         ##### start creating graph #####
         wp.capture_begin()
 
