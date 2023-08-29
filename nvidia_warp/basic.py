@@ -45,8 +45,8 @@ class Example:
         sim_width = 32
         sim_height = 32
         
-        cell_x = 0.05
-        cell_y = 0.05
+        cell_x = 1e-3
+        cell_y = 1e-3
         
         builder.add_cloth_grid(
             pos=(-sim_width * cell_x * 0.5, 7.0, -sim_height * cell_y * 0.5),
@@ -93,7 +93,10 @@ class Example:
         self.target = wp.vec3(0.0, 0.0, 0.0)
         self.com = wp.zeros(1, dtype=wp.vec3, device=self.device, requires_grad=True)
         self.loss = wp.zeros(1, dtype=wp.float32, device=self.device, requires_grad=True)
-
+        
+        self.init_force = wp.zeros(1, dtype=wp.vec3, device=self.device, requires_grad=True)
+        self.pick_force = wp.array([5.0, 10.0, 5.0], dtype=wp.vec3, device=self.device, requires_grad=True)
+        
         self.states = []
         for i in range(self.sim_steps + 1):
             self.states.append(self.model.state(requires_grad=True))
@@ -206,32 +209,31 @@ class Example:
         self.graph = wp.capture_end()
         ##### end creating graph #####
 
-        # # replay and optimize
-        # for i in range(self.train_iters):
-        #     with wp.ScopedTimer("Step"):
-        #         # forward + backward
-        #         wp.capture_launch(self.graph)
+        # replay and optimize
+        for i in range(self.train_iters):
+            with wp.ScopedTimer("Step"):
+                # forward + backward
+                wp.capture_launch(self.graph)
 
-        #         # gradient descent step
-        #         x = self.states[0].particle_q
-        #         wp.launch(
-        #             kernel=self.step_kernel, 
-        #             dim=len(x), 
-        #             inputs=[x, x.grad, self.train_rate], 
-        #             device=self.device
-        #         )
+                # gradient descent step
+                wp.launch(
+                    kernel=self.step_kernel, 
+                    dim=len(self.pick_force), 
+                    inputs=[self.pick_force, self.pick_force.grad, self.train_rate], 
+                    device=self.device
+                )
                 
-        #         # debug
-        #         print(f"Iter: {i} Loss: {self.loss}")
+                # debug
+                print(f"Iter: {i} Loss: {self.loss}")
 
-        #         # clear grads for next iteration
-        #         tape.zero()
+                # clear grads for next iteration
+                tape.zero()
             
-        #     with wp.ScopedTimer("Render"):
-        #         self.render(i)
+            with wp.ScopedTimer("Render"):
+                self.render(i)
         
-        wp.capture_launch(self.graph)
-        self.render(0)
+        # wp.capture_launch(self.graph)
+        # self.render(0)
         
 
 if __name__ == "__main__":
